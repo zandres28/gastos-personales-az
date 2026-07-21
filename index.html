@@ -465,7 +465,7 @@ header h1 span { color: var(--primary); }
 <script>
 const SUPABASE_URL = 'https://uropsimoqicadhfwtqfu.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_z6L9E8q6nUPNzzaRzFxT3A_3LgcdlwX';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CATEGORIES = {
   casa: { label: 'Casa', icon: '🏠', color: 'var(--casa)' },
@@ -519,7 +519,7 @@ function updateDateDisplay() {
 
 // Supabase CRUD
 async function loadEntries() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('gastos')
     .select('*')
     .order('timestamp', { ascending: false });
@@ -527,7 +527,7 @@ async function loadEntries() {
 }
 
 async function saveEntry(entry) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('gastos')
     .insert([entry])
     .select();
@@ -536,7 +536,7 @@ async function saveEntry(entry) {
 }
 
 async function deleteEntryFromDB(id) {
-  const { error } = await supabase
+  const { error } = await db
     .from('gastos')
     .delete()
     .eq('id', id);
