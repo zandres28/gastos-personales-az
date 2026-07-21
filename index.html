@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gastos Personales AZ</title>
+<meta name="description" content="Registro simple de gastos personales">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#C8613C">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #FAF6F0;
+  --card: #FFFFFF;
+  --primary: #C8613C;
+  --primary-dark: #AD4D2C;
+  --primary-light: #F0DED6;
+  --primary-glow: rgba(200, 97, 60, 0.15);
+  --text: #1F1B16;
+  --text-secondary: #7A7168;
+  --text-tertiary: #A69B90;
+  --border: #EBE3DA;
+  --border-light: #F2ECE4;
+  --success: #4A7C59;
+  --danger: #C84C4C;
+  --shadow-sm: 0 1px 3px rgba(31,27,22,0.06);
+  --shadow-md: 0 4px 12px rgba(31,27,22,0.08);
+  --shadow-lg: 0 8px 30px rgba(31,27,22,0.1);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Playfair Display', serif;
+  --casa: #C8613C;
+  --casa-bg: #FDF0EA;
+  --empresa: #2B6B8A;
+  --empresa-bg: #EBF2F6;
+  --personal: #8B6C9E;
+  --personal-bg: #F4EEF7;
+}
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+/* Header */
+header { text-align: center; margin-bottom: 24px; }
+header h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2rem;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+header h1 span { color: var(--primary); }
+#date-display {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: box-shadow 0.2s;
+}
+
+/* Form */
+#form-card { padding-bottom: 16px; }
+#form-card.expanded { box-shadow: var(--shadow-md); }
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  padding: 4px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 14px;
+}
+.amount-row:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.currency-symbol {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+}
+#amount {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: var(--text);
+  outline: none;
+  padding: 12px 0;
+  min-width: 0;
+  -moz-appearance: textfield;
+}
+#amount::-webkit-outer-spin-button,
+#amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#amount::placeholder { color: var(--text-tertiary); font-weight: 400; }
+
+.cat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.cat-btn:hover { border-color: var(--text-tertiary); }
+.cat-btn .cat-icon { font-size: 1rem; }
+.cat-btn.active-casa { border-color: var(--casa); background: var(--casa-bg); color: var(--casa); }
+.cat-btn.active-empresa { border-color: var(--empresa); background: var(--empresa-bg); color: var(--empresa); }
+.cat-btn.active-personal { border-color: var(--personal); background: var(--personal-bg); color: var(--personal); }
+
+#note {
+  width: 100%;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 14px;
+}
+#note:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+#note::placeholder { color: var(--text-tertiary); }
+
+#submit-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+#submit-btn:hover { background: var(--primary-dark); }
+#submit-btn:active { transform: scale(0.98); }
+#submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Summary */
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+.summary-header h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+#total-display {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.summary-row + .summary-row { border-top: 1px solid var(--border-light); }
+.summary-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 110px;
+  white-space: nowrap;
+}
+.summary-amount {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 70px;
+  text-align: right;
+}
+.summary-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.summary-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Entries */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.section-header h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+.entry-count {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.entry {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  margin-bottom: 8px;
+  background: var(--card);
+  transition: all 0.25s;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.entry.removing {
+  opacity: 0;
+  transform: translateX(20px);
+}
+.entry-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.entry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.entry-time {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.entry-amount {
+  margin-left: auto;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.entry-delete {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.entry:hover .entry-delete,
+.entry:focus-within .entry-delete { opacity: 1; }
+.entry-delete:hover { color: var(--danger); background: rgba(200,76,76,0.1); }
+.entry-note {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  padding-left: 4px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-tertiary);
+}
+.empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.empty-state p { font-size: 0.9375rem; }
+
+/* Toggle history */
+#toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+#toggle-btn:hover { border-color: var(--text-tertiary); color: var(--text); }
+
+/* View mode label */
+#view-label {
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--primary);
+  margin-bottom: 12px;
+  display: none;
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+  #app { padding: 16px 12px 32px; }
+  .cat-btn { font-size: 0.75rem; padding: 8px 4px; }
+  .cat-btn .cat-icon { font-size: 0.875rem; }
+  #amount { font-size: 1.5rem; }
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--text);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1><span>Gastos</span> Personales AZ</h1>
+    <p id="date-display"></p>
+  </header>
+
+  <div class="card" id="form-card">
+    <form id="form" autocomplete="off">
+      <div class="amount-row">
+        <span class="currency-symbol">$</span>
+        <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal" required>
+      </div>
+      <div class="cat-row">
+        <button type="button" class="cat-btn" data-cat="casa"><span class="cat-icon">🏠</span> Casa</button>
+        <button type="button" class="cat-btn" data-cat="empresa"><span class="cat-icon">💼</span> Empresa</button>
+        <button type="button" class="cat-btn" data-cat="personal"><span class="cat-icon">👤</span> Personal</button>
+      </div>
+      <input type="text" id="note" placeholder="Nota opcional (ej. Supermercado, transporte...)" maxlength="100">
+      <button type="submit" id="submit-btn" disabled>✚ Agregar Gasto</button>
+    </form>
+  </div>
+
+  <div class="card" id="summary-card">
+    <div class="summary-header">
+      <h2>Resumen</h2>
+      <span id="total-display">$0.00</span>
+    </div>
+    <div id="summary-rows"></div>
+  </div>
+
+  <section id="entries-section">
+    <div class="section-header">
+      <h2 id="entries-title">Gastos de Hoy</h2>
+      <span class="entry-count" id="entry-count"></span>
+    </div>
+    <div id="entries-list">
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>No hay gastos registrados hoy</p>
+      </div>
+    </div>
+    <button id="toggle-btn">📅 Ver historial completo</button>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CATEGORIES = {
+  casa: { label: 'Casa', icon: '🏠', color: 'var(--casa)' },
+  empresa: { label: 'Empresa', icon: '💼', color: 'var(--empresa)' },
+  personal: { label: 'Personal', icon: '👤', color: 'var(--personal)' }
+};
+
+const COLORS = {
+  casa: getComputedStyle(document.documentElement).getPropertyValue('--casa').trim(),
+  empresa: getComputedStyle(document.documentElement).getPropertyValue('--empresa').trim(),
+  personal: getComputedStyle(document.documentElement).getPropertyValue('--personal').trim()
+};
+
+// State
+let entries = [];
+let selectedCategory = null;
+let viewingHistory = false;
+
+// DOM refs
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const form = $('#form');
+const amountInput = $('#amount');
+const catBtns = $$('.cat-btn');
+const noteInput = $('#note');
+const submitBtn = $('#submit-btn');
+const entriesList = $('#entries-list');
+const totalDisplay = $('#total-display');
+const summaryRows = $('#summary-rows');
+const dateDisplay = $('#date-display');
+const entryCount = $('#entry-count');
+const entriesTitle = $('#entries-title');
+const toggleBtn = $('#toggle-btn');
+const toast = $('#toast');
+
+// Init
+function init() {
+  entries = loadEntries();
+  updateDateDisplay();
+  render();
+  setupForm();
+  setupToggle();
+  registerSW();
+}
+
+function updateDateDisplay() {
+  const now = new Date();
+  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  dateDisplay.textContent = now.toLocaleDateString('es-MX', opts);
+}
+
+// Persistence
+function loadEntries() {
+  try { return JSON.parse(localStorage.getItem('gastos') || '[]'); }
+  catch { return []; }
+}
+
+function saveEntries() {
+  localStorage.setItem('gastos', JSON.stringify(entries));
+}
+
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+function getTodayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getTodayEntries() {
+  const today = getTodayStr();
+  return entries.filter(e => e.date === today);
+}
+
+function getDisplayEntries() {
+  return viewingHistory ? entries : getTodayEntries();
+}
+
+function getCategoryTotals(list) {
+  const t = { casa: 0, empresa: 0, personal: 0 };
+  list.forEach(e => { t[e.category] += e.amount; });
+  return t;
+}
+
+// Render
+function render() {
+  const display = getDisplayEntries();
+  renderSummary(display);
+  renderEntries(display);
+  updateToggleLabel();
+}
+
+function renderSummary(list) {
+  const totals = getCategoryTotals(list);
+  const total = totals.casa + totals.empresa + totals.personal;
+  totalDisplay.textContent = formatCurrency(total);
+
+  const maxVal = Math.max(totals.casa, totals.empresa, totals.personal, 1);
+  let html = '';
+  Object.entries(CATEGORIES).forEach(([key, cat]) => {
+    const pct = (totals[key] / maxVal) * 100;
+    const color = COLORS[key];
+    html += `
+      <div class="summary-row">
+        <span class="summary-label">${cat.icon} ${cat.label}</span>
+        <span class="summary-amount" style="color:${color}">${formatCurrency(totals[key])}</span>
+        <div class="summary-bar-track">
+          <div class="summary-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>
+    `;
+  });
+  summaryRows.innerHTML = html;
+}
+
+function renderEntries(list) {
+  if (list.length === 0) {
+    entriesList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>${viewingHistory ? 'No hay gastos registrados' : 'No hay gastos registrados hoy'}</p>
+      </div>`;
+    entryCount.textContent = '';
+    return;
+  }
+
+  const sorted = [...list].sort((a, b) => b.timestamp - a.timestamp);
+  let html = '';
+  sorted.forEach(entry => {
+    const cat = CATEGORIES[entry.category];
+    const color = COLORS[entry.category];
+    html += `
+      <div class="entry" data-id="${entry.id}">
+        <div class="entry-top">
+          <span class="entry-badge" style="background:${color}18;color:${color}">${cat.icon} ${cat.label}</span>
+          <span class="entry-time">${formatTime(entry.timestamp)}</span>
+          <span class="entry-amount" style="color:${color}">${formatCurrency(entry.amount)}</span>
+          <button class="entry-delete" data-id="${entry.id}" aria-label="Eliminar">✕</button>
+        </div>
+        ${entry.note ? `<div class="entry-note">${esc(entry.note)}</div>` : ''}
+      </div>`;
+  });
+  entriesList.innerHTML = html;
+
+  entryCount.textContent = list.length === 1 ? '1 gasto' : `${list.length} gastos`;
+
+  // Bind delete buttons
+  entriesList.querySelectorAll('.entry-delete').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteEntry(btn.dataset.id);
+    });
+  });
+}
+
+// Formatting
+function formatCurrency(amount) {
+  return '$' + Number(amount).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
+function esc(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// CRUD
+function addEntry(amount, category, note) {
+  const entry = {
+    id: generateId(),
+    amount: Math.round(amount * 100) / 100,
+    category,
+    note: note.trim(),
+    date: getTodayStr(),
+    timestamp: Date.now()
+  };
+  entries.push(entry);
+  saveEntries();
+  render();
+  animateEntry(entry.id);
+  showToast('Gasto registrado ✨');
+}
+
+function deleteEntry(id) {
+  const el = entriesList.querySelector(`.entry[data-id="${id}"]`);
+  if (el) el.classList.add('removing');
+  setTimeout(() => {
+    entries = entries.filter(e => e.id !== id);
+    saveEntries();
+    render();
+    showToast('Gasto eliminado');
+  }, 250);
+}
+
+function animateEntry(id) {
+  setTimeout(() => {
+    const el = entriesList.querySelector(`.entry[data-id="${id}"]`);
+    if (el) el.style.animation = 'none';
+  }, 400);
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// Form
+function setupForm() {
+  catBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      catBtns.forEach(b => b.className = 'cat-btn');
+      const cat = btn.dataset.cat;
+      btn.classList.add('active-' + cat);
+      selectedCategory = cat;
+      validateForm();
+    });
+  });
+
+  amountInput.addEventListener('input', validateForm);
+  noteInput.addEventListener('input', validateForm);
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (submitBtn.disabled) return;
+    const amount = parseFloat(amountInput.value);
+    addEntry(amount, selectedCategory, noteInput.value);
+    form.reset();
+    catBtns.forEach(b => b.className = 'cat-btn');
+    selectedCategory = null;
+    submitBtn.disabled = true;
+    amountInput.focus();
+  });
+}
+
+function validateForm() {
+  const amount = parseFloat(amountInput.value);
+  const valid = amount > 0 && selectedCategory !== null;
+  submitBtn.disabled = !valid;
+}
+
+// Toggle history
+function setupToggle() {
+  toggleBtn.addEventListener('click', () => {
+    viewingHistory = !viewingHistory;
+    render();
+    if (viewingHistory) {
+      toggleBtn.textContent = '📅 Ver solo hoy';
+    } else {
+      toggleBtn.textContent = '📅 Ver historial completo';
+    }
+  });
+}
+
+function updateToggleLabel() {
+  entriesTitle.textContent = viewingHistory ? 'Todos los Gastos' : 'Gastos de Hoy';
+}
+
+// PWA
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+// Boot
+init();
+</script>
+</body>
+</html>
