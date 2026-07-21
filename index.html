@@ -198,6 +198,23 @@ header h1 span { color: var(--primary); }
 #submit-btn:active { transform: scale(0.98); }
 #submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+/* Loading */
+.loading-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-tertiary);
+}
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Summary */
 .summary-header {
   display: flex;
@@ -364,16 +381,6 @@ header h1 span { color: var(--primary); }
 }
 #toggle-btn:hover { border-color: var(--text-tertiary); color: var(--text); }
 
-/* View mode label */
-#view-label {
-  text-align: center;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--primary);
-  margin-bottom: 12px;
-  display: none;
-}
-
 /* Responsive */
 @media (max-width: 400px) {
   #app { padding: 16px 12px 32px; }
@@ -443,9 +450,9 @@ header h1 span { color: var(--primary); }
       <span class="entry-count" id="entry-count"></span>
     </div>
     <div id="entries-list">
-      <div class="empty-state">
-        <div class="empty-icon">📋</div>
-        <p>No hay gastos registrados hoy</p>
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Cargando gastos...</p>
       </div>
     </div>
     <button id="toggle-btn">📅 Ver historial completo</button>
@@ -454,7 +461,12 @@ header h1 span { color: var(--primary); }
 
 <div class="toast" id="toast"></div>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = 'https://uropsimoqicadhfwtqfu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_z6L9E8q6nUPNzzaRzFxT3A_3LgcdlwX';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const CATEGORIES = {
   casa: { label: 'Casa', icon: '🏠', color: 'var(--casa)' },
   empresa: { label: 'Empresa', icon: '💼', color: 'var(--empresa)' },
@@ -490,9 +502,9 @@ const toggleBtn = $('#toggle-btn');
 const toast = $('#toast');
 
 // Init
-function init() {
-  entries = loadEntries();
+async function init() {
   updateDateDisplay();
+  await loadEntries();
   render();
   setupForm();
   setupToggle();
@@ -505,18 +517,31 @@ function updateDateDisplay() {
   dateDisplay.textContent = now.toLocaleDateString('es-MX', opts);
 }
 
-// Persistence
-function loadEntries() {
-  try { return JSON.parse(localStorage.getItem('gastos') || '[]'); }
-  catch { return []; }
+// Supabase CRUD
+async function loadEntries() {
+  const { data, error } = await supabase
+    .from('gastos')
+    .select('*')
+    .order('timestamp', { ascending: false });
+  entries = data || [];
 }
 
-function saveEntries() {
-  localStorage.setItem('gastos', JSON.stringify(entries));
+async function saveEntry(entry) {
+  const { data, error } = await supabase
+    .from('gastos')
+    .insert([entry])
+    .select();
+  if (!error && data) entries.unshift(data[0]);
+  return !error;
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+async function deleteEntryFromDB(id) {
+  const { error } = await supabase
+    .from('gastos')
+    .delete()
+    .eq('id', id);
+  if (!error) entries = entries.filter(e => e.id !== id);
+  return !error;
 }
 
 function getTodayStr() {
@@ -534,7 +559,7 @@ function getDisplayEntries() {
 
 function getCategoryTotals(list) {
   const t = { casa: 0, empresa: 0, personal: 0 };
-  list.forEach(e => { t[e.category] += e.amount; });
+  list.forEach(e => { t[e.category] += Number(e.amount); });
   return t;
 }
 
@@ -600,11 +625,13 @@ function renderEntries(list) {
 
   entryCount.textContent = list.length === 1 ? '1 gasto' : `${list.length} gastos`;
 
-  // Bind delete buttons
   entriesList.querySelectorAll('.entry-delete').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      deleteEntry(btn.dataset.id);
+      const el = entriesList.querySelector(`.entry[data-id="${btn.dataset.id}"]`);
+      if (el) el.classList.add('removing');
+      const ok = await deleteEntryFromDB(btn.dataset.id);
+      if (ok) { render(); showToast('Gasto eliminado'); }
     });
   });
 }
@@ -624,39 +651,17 @@ function esc(str) {
   return div.innerHTML;
 }
 
-// CRUD
-function addEntry(amount, category, note) {
+// Add entry
+async function addEntry(amount, category, note) {
   const entry = {
-    id: generateId(),
     amount: Math.round(amount * 100) / 100,
     category,
     note: note.trim(),
     date: getTodayStr(),
     timestamp: Date.now()
   };
-  entries.push(entry);
-  saveEntries();
-  render();
-  animateEntry(entry.id);
-  showToast('Gasto registrado ✨');
-}
-
-function deleteEntry(id) {
-  const el = entriesList.querySelector(`.entry[data-id="${id}"]`);
-  if (el) el.classList.add('removing');
-  setTimeout(() => {
-    entries = entries.filter(e => e.id !== id);
-    saveEntries();
-    render();
-    showToast('Gasto eliminado');
-  }, 250);
-}
-
-function animateEntry(id) {
-  setTimeout(() => {
-    const el = entriesList.querySelector(`.entry[data-id="${id}"]`);
-    if (el) el.style.animation = 'none';
-  }, 400);
+  const ok = await saveEntry(entry);
+  if (ok) { render(); showToast('Gasto registrado ✨'); }
 }
 
 function showToast(msg) {
@@ -681,11 +686,12 @@ function setupForm() {
   amountInput.addEventListener('input', validateForm);
   noteInput.addEventListener('input', validateForm);
 
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     if (submitBtn.disabled) return;
     const amount = parseFloat(amountInput.value);
-    addEntry(amount, selectedCategory, noteInput.value);
+    submitBtn.disabled = true;
+    await addEntry(amount, selectedCategory, noteInput.value);
     form.reset();
     catBtns.forEach(b => b.className = 'cat-btn');
     selectedCategory = null;
@@ -705,11 +711,7 @@ function setupToggle() {
   toggleBtn.addEventListener('click', () => {
     viewingHistory = !viewingHistory;
     render();
-    if (viewingHistory) {
-      toggleBtn.textContent = '📅 Ver solo hoy';
-    } else {
-      toggleBtn.textContent = '📅 Ver historial completo';
-    }
+    toggleBtn.textContent = viewingHistory ? '📅 Ver solo hoy' : '📅 Ver historial completo';
   });
 }
 
