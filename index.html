@@ -88,7 +88,6 @@ header h1 span { color: var(--primary); }
 
 /* Form */
 #form-card { padding-bottom: 16px; }
-#form-card.expanded { box-shadow: var(--shadow-md); }
 .amount-row {
   display: flex;
   align-items: center;
@@ -127,11 +126,20 @@ header h1 span { color: var(--primary); }
 #amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #amount::placeholder { color: var(--text-tertiary); font-weight: 400; }
 
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
 .cat-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .cat-btn {
   display: flex;
@@ -156,6 +164,34 @@ header h1 span { color: var(--primary); }
 .cat-btn.active-casa { border-color: var(--casa); background: var(--casa-bg); color: var(--casa); }
 .cat-btn.active-empresa { border-color: var(--empresa); background: var(--empresa-bg); color: var(--empresa); }
 .cat-btn.active-personal { border-color: var(--personal); background: var(--personal-bg); color: var(--personal); }
+
+.pay-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.pay-btn {
+  padding: 6px 12px;
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  white-space: nowrap;
+}
+.pay-btn:hover { border-color: var(--text-tertiary); }
+.pay-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
 
 #note {
   width: 100%;
@@ -205,8 +241,7 @@ header h1 span { color: var(--primary); }
   color: var(--text-tertiary);
 }
 .loading-spinner {
-  width: 32px;
-  height: 32px;
+  width: 32px; height: 32px;
   border: 3px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
@@ -343,11 +378,26 @@ header h1 span { color: var(--primary); }
 .entry:hover .entry-delete,
 .entry:focus-within .entry-delete { opacity: 1; }
 .entry-delete:hover { color: var(--danger); background: rgba(200,76,76,0.1); }
+.entry-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
 .entry-note {
   font-size: 0.8125rem;
   color: var(--text-secondary);
-  margin-top: 6px;
   padding-left: 4px;
+}
+.entry-pay {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
 }
 
 /* Empty state */
@@ -387,6 +437,7 @@ header h1 span { color: var(--primary); }
   .cat-btn { font-size: 0.75rem; padding: 8px 4px; }
   .cat-btn .cat-icon { font-size: 0.875rem; }
   #amount { font-size: 1.5rem; }
+  .pay-btn { padding: 5px 10px; font-size: 0.6875rem; }
 }
 
 /* Toast */
@@ -426,10 +477,19 @@ header h1 span { color: var(--primary); }
         <span class="currency-symbol">$</span>
         <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal" required>
       </div>
+      <p class="form-label">Categoría</p>
       <div class="cat-row">
         <button type="button" class="cat-btn" data-cat="casa"><span class="cat-icon">🏠</span> Casa</button>
         <button type="button" class="cat-btn" data-cat="empresa"><span class="cat-icon">💼</span> Empresa</button>
         <button type="button" class="cat-btn" data-cat="personal"><span class="cat-icon">👤</span> Personal</button>
+      </div>
+      <p class="form-label">Medio de pago</p>
+      <div class="pay-row">
+        <button type="button" class="pay-btn" data-pay="Efectivo">💵 Efectivo</button>
+        <button type="button" class="pay-btn" data-pay="Nequi">💜 Nequi</button>
+        <button type="button" class="pay-btn" data-pay="TC Rappi">🔴 TC Rappi</button>
+        <button type="button" class="pay-btn" data-pay="TC NU">⚫ TC NU</button>
+        <button type="button" class="pay-btn" data-pay="TC BBA">🟡 TC BBA</button>
       </div>
       <input type="text" id="note" placeholder="Nota opcional (ej. Supermercado, transporte...)" maxlength="100">
       <button type="submit" id="submit-btn" disabled>✚ Agregar Gasto</button>
@@ -482,6 +542,7 @@ const COLORS = {
 // State
 let entries = [];
 let selectedCategory = null;
+let selectedPay = null;
 let viewingHistory = false;
 
 // DOM refs
@@ -490,6 +551,7 @@ const $$ = s => document.querySelectorAll(s);
 const form = $('#form');
 const amountInput = $('#amount');
 const catBtns = $$('.cat-btn');
+const payBtns = $$('.pay-btn');
 const noteInput = $('#note');
 const submitBtn = $('#submit-btn');
 const entriesList = $('#entries-list');
@@ -610,6 +672,11 @@ function renderEntries(list) {
   sorted.forEach(entry => {
     const cat = CATEGORIES[entry.category];
     const color = COLORS[entry.category];
+    const pay = entry.payment_method || 'Efectivo';
+    const bottomParts = [];
+    if (entry.note) bottomParts.push(`<span class="entry-note">${esc(entry.note)}</span>`);
+    bottomParts.push(`<span class="entry-pay">${esc(pay)}</span>`);
+    const bottom = bottomParts.length ? `<div class="entry-bottom">${bottomParts.join('')}</div>` : '';
     html += `
       <div class="entry" data-id="${entry.id}">
         <div class="entry-top">
@@ -618,7 +685,7 @@ function renderEntries(list) {
           <span class="entry-amount" style="color:${color}">${formatCurrency(entry.amount)}</span>
           <button class="entry-delete" data-id="${entry.id}" aria-label="Eliminar">✕</button>
         </div>
-        ${entry.note ? `<div class="entry-note">${esc(entry.note)}</div>` : ''}
+        ${bottom}
       </div>`;
   });
   entriesList.innerHTML = html;
@@ -652,11 +719,12 @@ function esc(str) {
 }
 
 // Add entry
-async function addEntry(amount, category, note) {
+async function addEntry(amount, category, note, paymentMethod) {
   const entry = {
     amount: Math.round(amount * 100) / 100,
     category,
     note: note.trim(),
+    payment_method: paymentMethod,
     date: getTodayStr(),
     timestamp: Date.now()
   };
@@ -676,9 +744,17 @@ function setupForm() {
   catBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       catBtns.forEach(b => b.className = 'cat-btn');
-      const cat = btn.dataset.cat;
-      btn.classList.add('active-' + cat);
-      selectedCategory = cat;
+      btn.classList.add('active-' + btn.dataset.cat);
+      selectedCategory = btn.dataset.cat;
+      validateForm();
+    });
+  });
+
+  payBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      payBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedPay = btn.dataset.pay;
       validateForm();
     });
   });
@@ -691,10 +767,12 @@ function setupForm() {
     if (submitBtn.disabled) return;
     const amount = parseFloat(amountInput.value);
     submitBtn.disabled = true;
-    await addEntry(amount, selectedCategory, noteInput.value);
+    await addEntry(amount, selectedCategory, noteInput.value, selectedPay);
     form.reset();
     catBtns.forEach(b => b.className = 'cat-btn');
+    payBtns.forEach(b => b.classList.remove('active'));
     selectedCategory = null;
+    selectedPay = null;
     submitBtn.disabled = true;
     amountInput.focus();
   });
@@ -702,7 +780,7 @@ function setupForm() {
 
 function validateForm() {
   const amount = parseFloat(amountInput.value);
-  const valid = amount > 0 && selectedCategory !== null;
+  const valid = amount > 0 && selectedCategory !== null && selectedPay !== null;
   submitBtn.disabled = !valid;
 }
 
