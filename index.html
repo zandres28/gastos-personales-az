@@ -328,6 +328,11 @@ header h1 span { color: var(--primary); }
   background: var(--card);
   transition: all 0.25s;
   animation: slideIn 0.3s ease;
+  cursor: pointer;
+}
+.entry:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
 }
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -440,6 +445,132 @@ header h1 span { color: var(--primary); }
   .pay-btn { padding: 5px 10px; font-size: 0.6875rem; }
 }
 
+/* Edit Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31,27,22,0.4);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+.modal-sheet {
+  background: var(--card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+.modal-overlay.open .modal-sheet {
+  transform: translateY(0);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.modal-header h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+.modal-close {
+  background: var(--bg);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-close:hover { background: var(--border); }
+.modal-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  padding: 4px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 14px;
+}
+.modal-amount-row:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.modal-amount-row .currency-symbol {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+#edit-amount {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: var(--text);
+  outline: none;
+  padding: 12px 0;
+  min-width: 0;
+  -moz-appearance: textfield;
+}
+#edit-amount::-webkit-outer-spin-button,
+#edit-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.modal-btn {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-btn:active { transform: scale(0.98); }
+.modal-btn-cancel {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 2px solid var(--border);
+}
+.modal-btn-cancel:hover { border-color: var(--text-tertiary); }
+.modal-btn-save {
+  background: var(--primary);
+  color: #fff;
+}
+.modal-btn-save:hover { background: var(--primary-dark); }
+.modal-btn-save:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
 /* Toast */
 .toast {
   position: fixed;
@@ -521,6 +652,38 @@ header h1 span { color: var(--primary); }
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h3>Editar Gasto</h3>
+      <button class="modal-close" id="edit-cancel-btn">✕</button>
+    </div>
+    <div class="modal-amount-row">
+      <span class="currency-symbol">$</span>
+      <input type="number" id="edit-amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+    </div>
+    <p class="form-label">Categoría</p>
+    <div class="cat-row" id="edit-cat-row">
+      <button type="button" class="cat-btn" data-cat="casa"><span class="cat-icon">🏠</span> Casa</button>
+      <button type="button" class="cat-btn" data-cat="empresa"><span class="cat-icon">💼</span> Empresa</button>
+      <button type="button" class="cat-btn" data-cat="personal"><span class="cat-icon">👤</span> Personal</button>
+    </div>
+    <p class="form-label">Medio de pago</p>
+    <div class="pay-row" id="edit-pay-row">
+      <button type="button" class="pay-btn" data-pay="Efectivo">💵 Efectivo</button>
+      <button type="button" class="pay-btn" data-pay="Nequi">💜 Nequi</button>
+      <button type="button" class="pay-btn" data-pay="TC Rappi">🔴 TC Rappi</button>
+      <button type="button" class="pay-btn" data-pay="TC NU">⚫ TC NU</button>
+      <button type="button" class="pay-btn" data-pay="TC BBA">🟡 TC BBA</button>
+    </div>
+    <input type="text" id="edit-note" placeholder="Nota opcional" maxlength="100">
+    <div class="modal-actions">
+      <button type="button" class="modal-btn modal-btn-cancel" id="edit-cancel-btn-2">Cancelar</button>
+      <button type="button" class="modal-btn modal-btn-save" id="edit-save-btn">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://uropsimoqicadhfwtqfu.supabase.co';
@@ -544,6 +707,9 @@ let entries = [];
 let selectedCategory = null;
 let selectedPay = null;
 let viewingHistory = false;
+let editingId = null;
+let editCat = null;
+let editPay = null;
 
 // DOM refs
 const $ = s => document.querySelector(s);
@@ -562,6 +728,14 @@ const entryCount = $('#entry-count');
 const entriesTitle = $('#entries-title');
 const toggleBtn = $('#toggle-btn');
 const toast = $('#toast');
+const editModal = $('#edit-modal');
+const editAmount = $('#edit-amount');
+const editCatRow = $('#edit-cat-row');
+const editPayRow = $('#edit-pay-row');
+const editNote = $('#edit-note');
+const editSaveBtn = $('#edit-save-btn');
+const editCancelBtn = $('#edit-cancel-btn');
+const editCancelBtn2 = $('#edit-cancel-btn-2');
 
 // Init
 async function init() {
@@ -569,6 +743,7 @@ async function init() {
   await loadEntries();
   render();
   setupForm();
+  setupEditModal();
   setupToggle();
   registerSW();
 }
@@ -603,6 +778,19 @@ async function deleteEntryFromDB(id) {
     .delete()
     .eq('id', id);
   if (!error) entries = entries.filter(e => e.id !== id);
+  return !error;
+}
+
+async function updateEntryInDB(id, updates) {
+  const { data, error } = await db
+    .from('gastos')
+    .update(updates)
+    .eq('id', id)
+    .select();
+  if (!error && data) {
+    const idx = entries.findIndex(e => e.id === id);
+    if (idx !== -1) entries[idx] = data[0];
+  }
   return !error;
 }
 
@@ -692,6 +880,10 @@ function renderEntries(list) {
 
   entryCount.textContent = list.length === 1 ? '1 gasto' : `${list.length} gastos`;
 
+  entriesList.querySelectorAll('.entry').forEach(el => {
+    el.addEventListener('click', () => openEditModal(el.dataset.id));
+  });
+
   entriesList.querySelectorAll('.entry-delete').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
@@ -737,6 +929,87 @@ function showToast(msg) {
   toast.classList.add('show');
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// Edit Modal
+function openEditModal(id) {
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  editingId = id;
+  editAmount.value = entry.amount;
+  editNote.value = entry.note || '';
+  editCat = entry.category;
+  editPay = entry.payment_method || 'Efectivo';
+  renderEditCatButtons();
+  renderEditPayButtons();
+  editSaveBtn.disabled = false;
+  editModal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  editAmount.focus();
+  editAmount.select();
+}
+
+function closeEditModal() {
+  editModal.classList.remove('open');
+  document.body.style.overflow = '';
+  editingId = null;
+  editCat = null;
+  editPay = null;
+}
+
+function renderEditCatButtons() {
+  editCatRow.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.className = 'cat-btn';
+    if (btn.dataset.cat === editCat) btn.classList.add('active-' + editCat);
+  });
+}
+
+function renderEditPayButtons() {
+  editPayRow.querySelectorAll('.pay-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.pay === editPay) btn.classList.add('active');
+  });
+}
+
+async function saveEdit() {
+  const amount = parseFloat(editAmount.value);
+  if (!amount || amount <= 0 || !editCat || !editPay) return;
+  editSaveBtn.disabled = true;
+  const ok = await updateEntryInDB(editingId, {
+    amount: Math.round(amount * 100) / 100,
+    category: editCat,
+    payment_method: editPay,
+    note: editNote.value.trim()
+  });
+  closeEditModal();
+  render();
+  if (ok) showToast('Gasto actualizado ✨');
+}
+
+function setupEditModal() {
+  editCatRow.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editCatRow.querySelectorAll('.cat-btn').forEach(b => b.className = 'cat-btn');
+      btn.classList.add('active-' + btn.dataset.cat);
+      editCat = btn.dataset.cat;
+    });
+  });
+
+  editPayRow.querySelectorAll('.pay-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editPayRow.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      editPay = btn.dataset.pay;
+    });
+  });
+
+  editSaveBtn.addEventListener('click', saveEdit);
+  editCancelBtn.addEventListener('click', closeEditModal);
+  editCancelBtn2.addEventListener('click', closeEditModal);
+
+  editModal.addEventListener('click', e => {
+    if (e.target === editModal) closeEditModal();
+  });
 }
 
 // Form
