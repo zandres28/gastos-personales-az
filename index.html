@@ -481,9 +481,11 @@ async function bootApp() {
   registerSW();
 }
 
-// Migrate old data without user_id
+// Migrate old data without user_id (uses SECURITY DEFINER function)
 async function migrateOldData() {
-  await db.from('gastos').update({ user_id: user.id }).is('user_id', null);
+  try {
+    await db.rpc('migrate_old_data', { target_user_id: user.id });
+  } catch(e) { /* function might not exist yet, that's ok */ }
 }
 
 function updateDateDisplay() {
