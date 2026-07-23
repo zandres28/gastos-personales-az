@@ -158,13 +158,25 @@ header h1 span{color:var(--primary)}
 .settings-item-btn{background:none;border:1px solid var(--border);border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.75rem;color:var(--text-secondary);transition:all .2s}
 .settings-item-btn:hover{background:var(--bg);color:var(--text)}
 .settings-item-btn.danger:hover{background:#FEF2F2;color:var(--danger);border-color:var(--danger)}
-.settings-add{display:flex;gap:8px;margin-top:12px}
+.settings-add{display:flex;gap:8px;margin-top:12px;align-items:center}
 .settings-add input{flex:1;border:2px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-family:var(--font-body);font-size:.875rem;color:var(--text);outline:none}
 .settings-add input:focus{border-color:var(--primary)}
+.icon-picker{display:flex;align-items:center;gap:8px}
+.icon-preview{width:36px;height:36px;border-radius:var(--radius-sm);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.25rem;cursor:pointer;overflow:hidden;transition:border-color .2s}
+.icon-preview:hover{border-color:var(--primary)}
+.icon-preview img{width:100%;height:100%;object-fit:cover}
+.icon-preview input[type=file]{display:none}
 .settings-add-btn{padding:10px 16px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:#fff;font-family:var(--font-body);font-size:.875rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .settings-add-btn:hover{background:var(--primary-dark)}
 .settings-section{margin-bottom:20px}
 .settings-section h4{font-size:.75rem;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.settings-item-editing{background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px}
+.settings-edit-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.settings-edit-row input{flex:1;border:2px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-family:var(--font-body);font-size:.875rem;outline:none}
+.settings-edit-row input:focus{border-color:var(--primary)}
+.settings-edit-actions{display:flex;gap:6px;justify-content:flex-end}
+.settings-edit-save{padding:6px 14px;border:none;border-radius:6px;background:var(--primary);color:#fff;font-size:.8125rem;font-weight:600;cursor:pointer}
+.settings-edit-cancel{padding:6px 14px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text-secondary);font-size:.8125rem;font-weight:600;cursor:pointer}
 
 /* Responsive */
 @media(max-width:400px){
@@ -294,8 +306,10 @@ header h1 span{color:var(--primary)}
       <h4>Categorías</h4>
       <div id="settings-categories"></div>
       <div class="settings-add">
+        <div class="icon-picker">
+          <label class="icon-preview" id="new-cat-icon-preview" title="Elegir icono">📁<input type="file" id="new-cat-icon-file" accept="image/*"></label>
+        </div>
         <input type="text" id="new-cat-name" placeholder="Nombre" maxlength="30">
-        <input type="text" id="new-cat-icon" placeholder="Icono" maxlength="4" style="width:60px;text-align:center">
         <button class="settings-add-btn" id="add-cat-btn">+</button>
       </div>
     </div>
@@ -303,8 +317,10 @@ header h1 span{color:var(--primary)}
       <h4>Medios de Pago</h4>
       <div id="settings-payments"></div>
       <div class="settings-add">
+        <div class="icon-picker">
+          <label class="icon-preview" id="new-pay-icon-preview" title="Elegir icono">💳<input type="file" id="new-pay-icon-file" accept="image/*"></label>
+        </div>
         <input type="text" id="new-pay-name" placeholder="Nombre" maxlength="30">
-        <input type="text" id="new-pay-icon" placeholder="Icono" maxlength="4" style="width:60px;text-align:center">
         <button class="settings-add-btn" id="add-pay-btn">+</button>
       </div>
     </div>
@@ -453,6 +469,7 @@ db.auth.onAuthStateChange((event, session) => {
 // Boot app
 async function bootApp() {
   updateDateDisplay();
+  await migrateOldData();
   await Promise.all([loadCategories(), loadPayments(), loadEntries()]);
   renderFormButtons();
   renderFilters();
@@ -462,6 +479,11 @@ async function bootApp() {
   setupSettings();
   setupToggle();
   registerSW();
+}
+
+// Migrate old data without user_id
+async function migrateOldData() {
+  await db.from('gastos').update({ user_id: user.id }).is('user_id', null);
 }
 
 function updateDateDisplay() {
@@ -525,14 +547,24 @@ function getTodayStr() { return new Date().toISOString().split('T')[0]; }
 function renderFormButtons() {
   const catRow = $('#form-cat-row');
   const payRow = $('#form-pay-row');
-  catRow.innerHTML = categories.map(c => `<button type="button" class="cat-btn" data-cat="${esc(c.id)}"><span class="cat-icon">${c.icon}</span> ${esc(c.name)}</button>`).join('');
-  payRow.innerHTML = payments.map(p => `<button type="button" class="pay-btn" data-pay="${esc(p.id)}">${p.icon} ${esc(p.name)}</button>`).join('');
+  catRow.innerHTML = categories.map(c => {
+    const icon = c.icon.includes('/') ? `<img src="${c.icon}" style="width:16px;height:16px;object-fit:cover;border-radius:3px">` : `<span class="cat-icon">${c.icon}</span>`;
+    return `<button type="button" class="cat-btn" data-cat="${esc(c.id)}">${icon} ${esc(c.name)}</button>`;
+  }).join('');
+  payRow.innerHTML = payments.map(p => {
+    const icon = p.icon.includes('/') ? `<img src="${p.icon}" style="width:14px;height:14px;object-fit:cover;border-radius:3px">` : p.icon;
+    return `<button type="button" class="pay-btn" data-pay="${esc(p.id)}">${icon} ${esc(p.name)}</button>`;
+  }).join('');
   catRow.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      catRow.querySelectorAll('.cat-btn').forEach(b => b.className = 'cat-btn');
+      catRow.querySelectorAll('.cat-btn').forEach(b => { b.className = 'cat-btn'; b.style = ''; });
       const cat = categories.find(c => c.id === btn.dataset.cat);
-      if (cat) { btn.classList.add('active-' + (cat.name.toLowerCase() === 'casa' ? 'casa' : cat.name.toLowerCase() === 'empresa' ? 'empresa' : 'personal')); }
-      else { btn.style.borderColor = 'var(--primary)'; btn.style.background = 'var(--primary-light)'; btn.style.color = 'var(--primary)'; }
+      if (cat) {
+        const color = cat.color || 'var(--primary)';
+        btn.style.borderColor = color;
+        btn.style.background = color + '18';
+        btn.style.color = color;
+      }
       selectedCategory = btn.dataset.cat;
       validateForm();
     });
@@ -558,8 +590,14 @@ function renderFilters() {
   });
   filterMonth.innerHTML = '<option value="">Todos los meses</option>';
   months.forEach((label, key) => { filterMonth.innerHTML += `<option value="${key}">${label}</option>`; });
-  filterCat.innerHTML = '<option value="">Todas</option>' + categories.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
-  filterPay.innerHTML = '<option value="">Todas</option>' + payments.map(p => `<option value="${p.id}">${p.icon} ${esc(p.name)}</option>`).join('');
+  filterCat.innerHTML = '<option value="">Todas</option>' + categories.map(c => {
+    const iconText = c.icon.includes('/') ? '📁' : c.icon;
+    return `<option value="${c.id}">${iconText} ${esc(c.name)}</option>`;
+  }).join('');
+  filterPay.innerHTML = '<option value="">Todas</option>' + payments.map(p => {
+    const iconText = p.icon.includes('/') ? '💳' : p.icon;
+    return `<option value="${p.id}">${iconText} ${esc(p.name)}</option>`;
+  }).join('');
   filterMonth.addEventListener('change', applyFilters);
   filterCat.addEventListener('change', applyFilters);
   filterPay.addEventListener('change', applyFilters);
@@ -627,7 +665,8 @@ function renderSummary(list) {
   const maxVal = Math.max(...Object.values(totals), 1);
   summaryRows.innerHTML = categories.map(c => {
     const pct = ((totals[c.id]||0) / maxVal) * 100;
-    return `<div class="summary-row"><span class="summary-label">${c.icon} ${esc(c.name)}</span><span class="summary-amount" style="color:${c.color}">${formatCurrency(totals[c.id]||0)}</span><div class="summary-bar-track"><div class="summary-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>`;
+    const icon = c.icon.includes('/') ? `<img src="${c.icon}" style="width:16px;height:16px;object-fit:cover;border-radius:3px;vertical-align:middle">` : c.icon;
+    return `<div class="summary-row"><span class="summary-label">${icon} ${esc(c.name)}</span><span class="summary-amount" style="color:${c.color}">${formatCurrency(totals[c.id]||0)}</span><div class="summary-bar-track"><div class="summary-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>`;
   }).join('');
 }
 
@@ -643,10 +682,12 @@ function renderEntries(list) {
   entriesList.innerHTML = sorted.map(e => {
     const cat = catMap[e.category] || { icon: '📁', name: '?', color: '#7A7168' };
     const pay = payMap[e.payment_method] || { icon: '💳', name: 'Efectivo' };
+    const catIcon = cat.icon.includes('/') ? `<img src="${cat.icon}" style="width:14px;height:14px;object-fit:cover;border-radius:3px">` : cat.icon;
+    const payIcon = pay.icon.includes('/') ? `<img src="${pay.icon}" style="width:12px;height:12px;object-fit:cover;border-radius:2px">` : pay.icon;
     const bottom = [];
     if (e.note) bottom.push(`<span class="entry-note">${esc(e.note)}</span>`);
-    bottom.push(`<span class="entry-pay">${pay.icon} ${esc(pay.name)}</span>`);
-    return `<div class="entry" data-id="${e.id}"><div class="entry-top"><span class="entry-badge" style="background:${cat.color}18;color:${cat.color}">${cat.icon} ${esc(cat.name)}</span><span class="entry-time">${formatTime(e.timestamp)}</span><span class="entry-amount" style="color:${cat.color}">${formatCurrency(e.amount)}</span><button class="entry-delete" data-id="${e.id}" aria-label="Eliminar">✕</button></div>${bottom.length ? `<div class="entry-bottom">${bottom.join('')}</div>` : ''}</div>`;
+    bottom.push(`<span class="entry-pay">${payIcon} ${esc(pay.name)}</span>`);
+    return `<div class="entry" data-id="${e.id}"><div class="entry-top"><span class="entry-badge" style="background:${cat.color}18;color:${cat.color}">${catIcon} ${esc(cat.name)}</span><span class="entry-time">${formatTime(e.timestamp)}</span><span class="entry-amount" style="color:${cat.color}">${formatCurrency(e.amount)}</span><button class="entry-delete" data-id="${e.id}" aria-label="Eliminar">✕</button></div>${bottom.length ? `<div class="entry-bottom">${bottom.join('')}</div>` : ''}</div>`;
   }).join('');
   entryCount.textContent = list.length === 1 ? '1 gasto' : `${list.length} gastos`;
   entriesList.querySelectorAll('.entry').forEach(el => el.addEventListener('click', () => openEditModal(el.dataset.id)));
@@ -717,18 +758,22 @@ function openEditModal(id) {
 function closeEditModal() { editModal.classList.remove('open'); document.body.style.overflow = ''; editingId = null; }
 
 function renderEditCatButtons() {
-  editCatRow.innerHTML = categories.map(c => `<button type="button" class="cat-btn ${c.id===editCat?'active':''}" data-cat="${c.id}" style="${c.id===editCat?`border-color:${c.color};background:${c.color}18;color:${c.color}`:''}"><span class="cat-icon">${c.icon}</span> ${esc(c.name)}</button>`).join('');
+  editCatRow.innerHTML = categories.map(c => {
+    const icon = c.icon.includes('/') ? `<img src="${c.icon}" style="width:16px;height:16px;object-fit:cover;border-radius:3px">` : `<span class="cat-icon">${c.icon}</span>`;
+    const isActive = c.id === editCat;
+    const color = c.color || 'var(--primary)';
+    return `<button type="button" class="cat-btn" data-cat="${c.id}" style="${isActive ? `border-color:${color};background:${color}18;color:${color}` : ''}">${icon} ${esc(c.name)}</button>`;
+  }).join('');
   editCatRow.querySelectorAll('.cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      editCat = btn.dataset.cat;
-      const cat = categories.find(c => c.id === editCat);
-      renderEditCatButtons();
-    });
+    btn.addEventListener('click', () => { editCat = btn.dataset.cat; renderEditCatButtons(); });
   });
 }
 
 function renderEditPayButtons() {
-  editPayRow.innerHTML = payments.map(p => `<button type="button" class="pay-btn ${p.id===editPay?'active':''}" data-pay="${p.id}">${p.icon} ${esc(p.name)}</button>`).join('');
+  editPayRow.innerHTML = payments.map(p => {
+    const icon = p.icon.includes('/') ? `<img src="${p.icon}" style="width:14px;height:14px;object-fit:cover;border-radius:3px">` : p.icon;
+    return `<button type="button" class="pay-btn ${p.id===editPay?'active':''}" data-pay="${p.id}">${icon} ${esc(p.name)}</button>`;
+  }).join('');
   editPayRow.querySelectorAll('.pay-btn').forEach(btn => {
     btn.addEventListener('click', () => { editPay = btn.dataset.pay; renderEditPayButtons(); });
   });
@@ -751,49 +796,196 @@ function setupEditModal() {
 }
 
 // Settings
+let newCatIconData = null;
+let newPayIconData = null;
+let editingSettingId = null;
+let editingSettingType = null;
+
+function readIconFile(input, preview) {
+  input.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 64;
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size);
+        const dataUrl = canvas.toDataURL('image/png');
+        preview.innerHTML = `<img src="${dataUrl}">`;
+        if (input.id === 'new-cat-icon-file') newCatIconData = dataUrl;
+        else if (input.id === 'new-pay-icon-file') newPayIconData = dataUrl;
+        else {
+          const parts = input.id.split('-');
+          const type = parts[1] === 'cat' ? 'cat' : 'pay';
+          const id = editingSettingId;
+          if (id) updateIconPreview(id, type, dataUrl);
+        }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function updateIconPreview(id, type, dataUrl) {
+  const preview = document.querySelector(`[data-icon-preview="${id}"]`);
+  if (preview) preview.innerHTML = `<img src="${dataUrl}">`;
+  if (type === 'cat') editingCatIcon = dataUrl;
+  else editingPayIcon = dataUrl;
+}
+
 function setupSettings() {
   $('#settings-btn').addEventListener('click', () => { renderSettings(); settingsModal.classList.add('open'); });
   $('#settings-close').addEventListener('click', () => settingsModal.classList.remove('open'));
   settingsModal.addEventListener('click', e => { if (e.target === settingsModal) settingsModal.classList.remove('open'); });
+
+  readIconFile($('#new-cat-icon-file'), $('#new-cat-icon-preview'));
+  readIconFile($('#new-pay-icon-file'), $('#new-pay-icon-preview'));
+
   $('#add-cat-btn').addEventListener('click', async () => {
     const name = $('#new-cat-name').value.trim();
-    const icon = $('#new-cat-icon').value.trim() || '📁';
     if (!name) return;
+    const icon = newCatIconData || '📁';
     await db.from('categories').insert({ name, icon, color: '#7A7168', user_id: user.id });
     await loadCategories(); renderFormButtons(); renderFilters(); renderSettings();
-    $('#new-cat-name').value = ''; $('#new-cat-icon').value = '';
+    $('#new-cat-name').value = '';
+    newCatIconData = null;
+    $('#new-cat-icon-preview').innerHTML = '📁';
   });
+
   $('#add-pay-btn').addEventListener('click', async () => {
     const name = $('#new-pay-name').value.trim();
-    const icon = $('#new-pay-icon').value.trim() || '💳';
     if (!name) return;
+    const icon = newPayIconData || '💳';
     await db.from('payment_methods').insert({ name, icon, user_id: user.id });
     await loadPayments(); renderFormButtons(); renderFilters(); renderSettings();
-    $('#new-pay-name').value = ''; $('#new-pay-icon').value = '';
+    $('#new-pay-name').value = '';
+    newPayIconData = null;
+    $('#new-pay-icon-preview').innerHTML = '💳';
   });
 }
 
+let editingCatIcon = null;
+let editingPayIcon = null;
+
 function renderSettings() {
-  settingsCategories.innerHTML = categories.map(c => `
-    <div class="settings-item">
-      <div class="settings-item-left"><span>${c.icon}</span><span class="settings-item-name">${esc(c.name)}</span></div>
+  settingsCategories.innerHTML = categories.map(c => {
+    if (editingSettingId === c.id && editingSettingType === 'cat') {
+      return `<div class="settings-item-editing">
+        <div class="settings-edit-row">
+          <label class="icon-preview" data-icon-preview="${c.id}" title="Cambiar icono">${c.icon.includes('/') ? `<img src="${c.icon}">` : c.icon}<input type="file" id="edit-icon-${c.id}" accept="image/*"></label>
+          <input type="text" id="edit-name-${c.id}" value="${esc(c.name)}" maxlength="30">
+        </div>
+        <div class="settings-edit-actions">
+          <button class="settings-edit-cancel" data-cancel-edit>Cancelar</button>
+          <button class="settings-edit-save" data-save-cat="${c.id}">Guardar</button>
+        </div>
+      </div>`;
+    }
+    const iconHtml = c.icon.includes('/') ? `<img src="${c.icon}" style="width:20px;height:20px;object-fit:cover;border-radius:4px">` : c.icon;
+    return `<div class="settings-item">
+      <div class="settings-item-left"><span>${iconHtml}</span><span class="settings-item-name">${esc(c.name)}</span></div>
       <div class="settings-item-actions">
+        <button class="settings-item-btn" data-edit-cat="${c.id}" title="Editar">✏️</button>
         <button class="settings-item-btn danger" data-del-cat="${c.id}">✕</button>
       </div>
-    </div>`).join('');
-  settingsPayments.innerHTML = payments.map(p => `
-    <div class="settings-item">
-      <div class="settings-item-left"><span>${p.icon}</span><span class="settings-item-name">${esc(p.name)}</span></div>
+    </div>`;
+  }).join('');
+
+  settingsPayments.innerHTML = payments.map(p => {
+    if (editingSettingId === p.id && editingSettingType === 'pay') {
+      return `<div class="settings-item-editing">
+        <div class="settings-edit-row">
+          <label class="icon-preview" data-icon-preview="${p.id}" title="Cambiar icono">${p.icon.includes('/') ? `<img src="${p.icon}">` : p.icon}<input type="file" id="edit-icon-${p.id}" accept="image/*"></label>
+          <input type="text" id="edit-name-${p.id}" value="${esc(p.name)}" maxlength="30">
+        </div>
+        <div class="settings-edit-actions">
+          <button class="settings-edit-cancel" data-cancel-edit>Cancelar</button>
+          <button class="settings-edit-save" data-save-pay="${p.id}">Guardar</button>
+        </div>
+      </div>`;
+    }
+    const iconHtml = p.icon.includes('/') ? `<img src="${p.icon}" style="width:20px;height:20px;object-fit:cover;border-radius:4px">` : p.icon;
+    return `<div class="settings-item">
+      <div class="settings-item-left"><span>${iconHtml}</span><span class="settings-item-name">${esc(p.name)}</span></div>
       <div class="settings-item-actions">
+        <button class="settings-item-btn" data-edit-pay="${p.id}" title="Editar">✏️</button>
         <button class="settings-item-btn danger" data-del-pay="${p.id}">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  // Edit buttons
+  settingsCategories.querySelectorAll('[data-edit-cat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingSettingId = btn.dataset.editCat;
+      editingSettingType = 'cat';
+      editingCatIcon = null;
+      renderSettings();
+      const fileInput = $(`#edit-icon-${editingSettingId}`);
+      if (fileInput) readIconFile(fileInput, $(`[data-icon-preview="${editingSettingId}"]`));
+    });
+  });
+
+  settingsPayments.querySelectorAll('[data-edit-pay]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingSettingId = btn.dataset.editPay;
+      editingSettingType = 'pay';
+      editingPayIcon = null;
+      renderSettings();
+      const fileInput = $(`#edit-icon-${editingSettingId}`);
+      if (fileInput) readIconFile(fileInput, $(`[data-icon-preview="${editingSettingId}"]`));
+    });
+  });
+
+  // Cancel edit
+  settingsModal.querySelectorAll('[data-cancel-edit]').forEach(btn => {
+    btn.addEventListener('click', () => { editingSettingId = null; editingSettingType = null; renderSettings(); });
+  });
+
+  // Save category
+  settingsModal.querySelectorAll('[data-save-cat]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.saveCat;
+      const name = $(`#edit-name-${id}`).value.trim();
+      if (!name) return;
+      const updates = { name };
+      if (editingCatIcon) updates.icon = editingCatIcon;
+      await db.from('categories').update(updates).eq('id', id);
+      editingSettingId = null; editingSettingType = null;
+      await loadCategories(); renderFormButtons(); renderFilters(); renderSettings(); render();
+    });
+  });
+
+  // Save payment
+  settingsModal.querySelectorAll('[data-save-pay]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.savePay;
+      const name = $(`#edit-name-${id}`).value.trim();
+      if (!name) return;
+      const updates = { name };
+      if (editingPayIcon) updates.icon = editingPayIcon;
+      await db.from('payment_methods').update(updates).eq('id', id);
+      editingSettingId = null; editingSettingType = null;
+      await loadPayments(); renderFormButtons(); renderFilters(); renderSettings(); render();
+    });
+  });
+
+  // Delete buttons
   settingsCategories.querySelectorAll('[data-del-cat]').forEach(btn => {
     btn.addEventListener('click', async () => {
       await db.from('categories').delete().eq('id', btn.dataset.delCat);
       await loadCategories(); renderFormButtons(); renderFilters(); renderSettings(); render();
     });
   });
+
   settingsPayments.querySelectorAll('[data-del-pay]').forEach(btn => {
     btn.addEventListener('click', async () => {
       await db.from('payment_methods').delete().eq('id', btn.dataset.delPay);
