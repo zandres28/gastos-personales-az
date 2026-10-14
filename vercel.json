@@ -1,0 +1,22 @@
+{
+  "buildCommand": "cd server && npm install",
+  "outputDirectory": ".",
+  "framework": null,
+  "installCommand": "cd server && npm install",
+  "devCommand": "cd server && npm run dev",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
+  }
+}
