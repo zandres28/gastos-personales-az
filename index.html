@@ -329,11 +329,29 @@ header h1 span{color:var(--primary)}
 
 <div class="toast" id="toast"></div>
 
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://uropsimoqicadhfwtqfu.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_z6L9E8q6nUPNzzaRzFxT3A_3LgcdlwX';
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const api = {
+  async request(path, { method = 'GET', body } = {}) {
+    const res = await fetch(path, {
+      method,
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) throw new Error((data && data.error) || 'Error de conexión');
+    return data;
+  },
+  register: (email, password) => api.request('/api/auth/register', { method: 'POST', body: { email, password } }),
+  login: (email, password) => api.request('/api/auth/login', { method: 'POST', body: { email, password } }),
+  logout: () => api.request('/api/auth/logout', { method: 'POST' }),
+  me: () => api.request('/api/auth/me'),
+  list: path => api.request(path),
+  create: (path, body) => api.request(path, { method: 'POST', body }),
+  update: (path, body) => api.request(path, { method: 'PATCH', body }),
+  remove: path => api.request(path, { method: 'DELETE' })
+};
 
 const DEFAULT_CATEGORIES = [
   { name: 'Casa', icon: '🏠', color: '#C8613C' },
@@ -416,76 +434,56 @@ authForm.addEventListener('submit', async e => {
   authBtn.textContent = isSignUp ? 'Creando...' : 'Ingresando...';
   const email = authEmail.value.trim();
   const pass = authPassword.value;
-  let res;
-  if (isSignUp) {
-    res = await db.auth.signUp({ email, password: pass });
-  } else {
-    res = await db.auth.signInWithPassword({ email, password: pass });
-  }
-  authBtn.disabled = false;
-  authBtn.textContent = isSignUp ? 'Crear cuenta' : 'Ingresar';
-  if (res.error) {
-    authError.textContent = res.error.message;
+  try {
+    const res = isSignUp ? await api.register(email, pass) : await api.login(email, pass);
+    user = res.user;
+    enterApp();
+  } catch (err) {
+    authError.textContent = err.message;
     authError.classList.add('show');
-    return;
-  }
-  if (isSignUp && !res.error) {
-    authError.textContent = 'Cuenta creada. Revisá tu email para confirmar.';
-    authError.style.background = '#F0FDF4';
-    authError.style.borderColor = '#BBF7D0';
-    authError.style.color = '#166534';
-    authError.classList.add('show');
-    return;
+  } finally {
+    authBtn.disabled = false;
+    authBtn.textContent = isSignUp ? 'Crear cuenta' : 'Ingresar';
   }
 });
 
+function enterApp() {
+  authScreen.classList.add('hidden');
+  app.classList.remove('hidden');
+  bootApp();
+}
+
 $('#logout-btn').addEventListener('click', async () => {
-  await db.auth.signOut();
+  try { await api.logout(); } catch (_) {}
   user = null;
   authScreen.classList.remove('hidden');
   app.classList.add('hidden');
 });
 
 async function checkSession() {
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    user = session.user;
-    authScreen.classList.add('hidden');
-    app.classList.remove('hidden');
-    await bootApp();
-  }
+  try {
+    const { user: u } = await api.me();
+    if (u) { user = u; enterApp(); }
+  } catch (_) {}
 }
 checkSession();
 
-db.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session) {
-    user = session.user;
-    authScreen.classList.add('hidden');
-    app.classList.remove('hidden');
-    bootApp();
-  }
-});
-
 // Boot app
+let appBooted = false;
 async function bootApp() {
   updateDateDisplay();
-  await migrateOldData();
   await Promise.all([loadCategories(), loadPayments(), loadEntries()]);
   renderFormButtons();
   renderFilters();
   render();
-  setupForm();
-  setupEditModal();
-  setupSettings();
-  setupToggle();
+  if (!appBooted) {
+    setupForm();
+    setupEditModal();
+    setupSettings();
+    setupToggle();
+    appBooted = true;
+  }
   registerSW();
-}
-
-// Migrate old data without user_id (uses SECURITY DEFINER function)
-async function migrateOldData() {
-  try {
-    await db.rpc('migrate_old_data', { target_user_id: user.id });
-  } catch(e) { /* function might not exist yet, that's ok */ }
 }
 
 function updateDateDisplay() {
@@ -495,52 +493,58 @@ function updateDateDisplay() {
 
 // Data
 async function loadCategories() {
-  const { data } = await db.from('categories').select('*').eq('user_id', user.id).order('created_at');
-  if (data && data.length > 0) {
+  let data = [];
+  try { data = await api.list('/api/categories'); } catch (_) { return; }
+  if (data.length > 0) {
     categories = data;
   } else {
     for (const c of DEFAULT_CATEGORIES) {
-      await db.from('categories').insert({ ...c, user_id: user.id });
+      await api.create('/api/categories', c);
     }
-    const { data: fresh } = await db.from('categories').select('*').eq('user_id', user.id).order('created_at');
-    categories = fresh || [];
+    categories = await api.list('/api/categories');
   }
 }
 
 async function loadPayments() {
-  const { data } = await db.from('payment_methods').select('*').eq('user_id', user.id).order('created_at');
-  if (data && data.length > 0) {
+  let data = [];
+  try { data = await api.list('/api/payment-methods'); } catch (_) { return; }
+  if (data.length > 0) {
     payments = data;
   } else {
     for (const p of DEFAULT_PAYMENTS) {
-      await db.from('payment_methods').insert({ ...p, user_id: user.id });
+      await api.create('/api/payment-methods', p);
     }
-    const { data: fresh } = await db.from('payment_methods').select('*').eq('user_id', user.id).order('created_at');
-    payments = fresh || [];
+    payments = await api.list('/api/payment-methods');
   }
 }
 
 async function loadEntries() {
-  const { data } = await db.from('gastos').select('*').eq('user_id', user.id).order('timestamp', { ascending: false });
-  entries = data || [];
+  try { entries = await api.list('/api/gastos'); } catch (_) { entries = []; }
 }
 
 async function saveEntry(entry) {
-  const { data, error } = await db.from('gastos').insert([{ ...entry, user_id: user.id }]).select();
-  if (!error && data) entries.unshift(data[0]);
-  return !error;
+  try {
+    const row = await api.create('/api/gastos', entry);
+    entries.unshift(row);
+    return true;
+  } catch (_) { return false; }
 }
 
 async function deleteEntryFromDB(id) {
-  const { error } = await db.from('gastos').delete().eq('id', id);
-  if (!error) entries = entries.filter(e => e.id !== id);
-  return !error;
+  try {
+    await api.remove(`/api/gastos/${id}`);
+    entries = entries.filter(e => e.id !== id);
+    return true;
+  } catch (_) { return false; }
 }
 
 async function updateEntryInDB(id, updates) {
-  const { data, error } = await db.from('gastos').update(updates).eq('id', id).select();
-  if (!error && data) { const i = entries.findIndex(e => e.id === id); if (i !== -1) entries[i] = data[0]; }
-  return !error;
+  try {
+    const row = await api.update(`/api/gastos/${id}`, updates);
+    const i = entries.findIndex(e => e.id === id);
+    if (i !== -1) entries[i] = row;
+    return true;
+  } catch (_) { return false; }
 }
 
 function getTodayStr() { return new Date().toISOString().split('T')[0]; }
@@ -582,6 +586,7 @@ function renderFormButtons() {
 }
 
 // Filters
+let filtersBound = false;
 function renderFilters() {
   const months = new Map();
   entries.forEach(e => {
@@ -600,9 +605,12 @@ function renderFilters() {
     const iconText = p.icon.includes('/') ? '💳' : p.icon;
     return `<option value="${p.id}">${iconText} ${esc(p.name)}</option>`;
   }).join('');
-  filterMonth.addEventListener('change', applyFilters);
-  filterCat.addEventListener('change', applyFilters);
-  filterPay.addEventListener('change', applyFilters);
+  if (!filtersBound) {
+    filterMonth.addEventListener('change', applyFilters);
+    filterCat.addEventListener('change', applyFilters);
+    filterPay.addEventListener('change', applyFilters);
+    filtersBound = true;
+  }
 }
 
 function getFilteredEntries() {
@@ -689,7 +697,8 @@ function renderEntries(list) {
     const bottom = [];
     if (e.note) bottom.push(`<span class="entry-note">${esc(e.note)}</span>`);
     bottom.push(`<span class="entry-pay">${payIcon} ${esc(pay.name)}</span>`);
-    return `<div class="entry" data-id="${e.id}"><div class="entry-top"><span class="entry-badge" style="background:${cat.color}18;color:${cat.color}">${catIcon} ${esc(cat.name)}</span><span class="entry-time">${formatTime(e.timestamp)}</span><span class="entry-amount" style="color:${cat.color}">${formatCurrency(e.amount)}</span><button class="entry-delete" data-id="${e.id}" aria-label="Eliminar">✕</button></div>${bottom.length ? `<div class="entry-bottom">${bottom.join('')}</div>` : ''}</div>`;
+    const timeDisplay = viewingHistory ? formatDateTime(e.timestamp) : formatTime(e.timestamp);
+    return `<div class="entry" data-id="${e.id}"><div class="entry-top"><span class="entry-badge" style="background:${cat.color}18;color:${cat.color}">${catIcon} ${esc(cat.name)}</span><span class="entry-time">${timeDisplay}</span><span class="entry-amount" style="color:${cat.color}">${formatCurrency(e.amount)}</span><button class="entry-delete" data-id="${e.id}" aria-label="Eliminar">✕</button></div>${bottom.length ? `<div class="entry-bottom">${bottom.join('')}</div>` : ''}</div>`;
   }).join('');
   entryCount.textContent = list.length === 1 ? '1 gasto' : `${list.length} gastos`;
   entriesList.querySelectorAll('.entry').forEach(el => el.addEventListener('click', () => openEditModal(el.dataset.id)));
@@ -705,6 +714,7 @@ function renderEntries(list) {
 
 function formatCurrency(amount) { return '$' + Number(amount).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function formatTime(ts) { return new Date(ts).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); }
+function formatDateTime(ts) { return new Date(ts).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
 // Add
@@ -855,7 +865,7 @@ function setupSettings() {
     const name = $('#new-cat-name').value.trim();
     if (!name) return;
     const icon = newCatIconData || '📁';
-    await db.from('categories').insert({ name, icon, color: '#7A7168', user_id: user.id });
+    await api.create('/api/categories', { name, icon, color: '#7A7168' });
     await loadCategories(); renderFormButtons(); renderFilters(); renderSettings();
     $('#new-cat-name').value = '';
     newCatIconData = null;
@@ -866,7 +876,7 @@ function setupSettings() {
     const name = $('#new-pay-name').value.trim();
     if (!name) return;
     const icon = newPayIconData || '💳';
-    await db.from('payment_methods').insert({ name, icon, user_id: user.id });
+    await api.create('/api/payment-methods', { name, icon });
     await loadPayments(); renderFormButtons(); renderFilters(); renderSettings();
     $('#new-pay-name').value = '';
     newPayIconData = null;
@@ -960,7 +970,7 @@ function renderSettings() {
       if (!name) return;
       const updates = { name };
       if (editingCatIcon) updates.icon = editingCatIcon;
-      await db.from('categories').update(updates).eq('id', id);
+      await api.update(`/api/categories/${id}`, updates);
       editingSettingId = null; editingSettingType = null;
       await loadCategories(); renderFormButtons(); renderFilters(); renderSettings(); render();
     });
@@ -974,7 +984,7 @@ function renderSettings() {
       if (!name) return;
       const updates = { name };
       if (editingPayIcon) updates.icon = editingPayIcon;
-      await db.from('payment_methods').update(updates).eq('id', id);
+      await api.update(`/api/payment-methods/${id}`, updates);
       editingSettingId = null; editingSettingType = null;
       await loadPayments(); renderFormButtons(); renderFilters(); renderSettings(); render();
     });
@@ -983,14 +993,14 @@ function renderSettings() {
   // Delete buttons
   settingsCategories.querySelectorAll('[data-del-cat]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await db.from('categories').delete().eq('id', btn.dataset.delCat);
+      await api.remove(`/api/categories/${btn.dataset.delCat}`);
       await loadCategories(); renderFormButtons(); renderFilters(); renderSettings(); render();
     });
   });
 
   settingsPayments.querySelectorAll('[data-del-pay]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await db.from('payment_methods').delete().eq('id', btn.dataset.delPay);
+      await api.remove(`/api/payment-methods/${btn.dataset.delPay}`);
       await loadPayments(); renderFormButtons(); renderFilters(); renderSettings(); render();
     });
   });
