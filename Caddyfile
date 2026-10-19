@@ -1,0 +1,18 @@
+{$SITE_ADDRESS:http://localhost} {
+	root * /usr/share/caddy
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+}

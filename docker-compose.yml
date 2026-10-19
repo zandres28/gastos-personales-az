@@ -1,0 +1,54 @@
+name: gastos-personales
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gastos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: ${POSTGRES_DB:-gastos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gastos} -d ${POSTGRES_DB:-gastos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-gastos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-gastos}
+      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-http://localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./index.html:/usr/share/caddy/index.html:ro
+      - ./sw.js:/usr/share/caddy/sw.js:ro
+      - ./manifest.json:/usr/share/caddy/manifest.json:ro
+      - ./icons:/usr/share/caddy/icons:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
