@@ -1,0 +1,10 @@
+{
+  "name": "gastos-personales-az",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "App de gastos personales (frontend estatico + API serverless en Vercel con Express/Postgres)",
+  "engines": {
+    "node": ">=20"
+  }
+}
