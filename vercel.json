@@ -9,6 +9,20 @@
       "destination": "/api"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/keep-alive",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/keep-alive",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/keep-alive",
+      "schedule": "0 17 * * *"
+    }
+  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 30

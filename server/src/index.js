@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import { pool } from './db.js';
+import { wrap } from './util.js';
 import { authRoutes } from './routes/auth.js';
 import { categoriesRoutes } from './routes/categories.js';
 import { paymentMethodsRoutes } from './routes/paymentMethods.js';
@@ -15,6 +17,16 @@ app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Keep-alive: Supabase (plan free) pausa el proyecto tras 7 dias sin actividad
+// en la base de datos. Este endpoint ejecuta consultas reales y lo invocan los
+// cron de Vercel definidos en vercel.json (GET /api/keep-alive).
+app.get('/api/keep-alive', wrap(async (req, res) => {
+  await pool.query('select 1');
+  await pool.query('select 1 from gastos limit 1');
+  res.json({ ok: true, db: 'ok', ts: new Date().toISOString() });
+}));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/payment-methods', paymentMethodsRoutes);
@@ -30,3 +42,10 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
+
+// En Vercel el handler lo invoca la plataforma (no debe escuchar).
+// En local / Docker / VPS si hace falta levantar el puerto.
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 3000;
+  app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));
+}
